@@ -83,56 +83,90 @@ class TasaController extends Controller
         return $data[0]->simbolo." ".$data[0]->alias;
     }
 
-    public function actionRetornaTasa($currency) 
+    public function actionRetornaTasa($currency, $pair = null) 
     {
         \Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
-        $actual = Moneda::find()
-            ->where(['alias' => trim(strtoupper($currency))])
-            ->one();
         $currency = trim(strtoupper($currency));
         $rs = [];
         $rate = [];
         $data = [];
         $bandera=false;
         $dolar=0;
-        if($actual->principal==1) {
-            $bandera=true;
-            $rate[$currency] = floatval(1);
+
+        if ($pair!==null) {
+            $pair = trim(strtoupper($pair));
+            if ($pair==$currency) {
+                $rate = floatval(1);
+            } else {
+                $mcurrency = Moneda::find()
+                    ->where(['alias' => $currency])
+                    ->one();
+
+                $mpair = Moneda::find()
+                    ->where(['alias' => $pair])
+                    ->one();
+
+                if($mcurrency->principal==1) {
+                    $tasa = Tasa::find()
+                        ->where(['idMoneda' => $mpair->idMoneda])
+                        ->one();
+                    $rate = floatval($tasa->tasaActual);
+                } else {
+                    $tasa = Tasa::find()
+                        ->where(['idMoneda' => $mcurrency->idMoneda])
+                        ->one();
+                    $rate = floatval(1 / $tasa->tasaActual);
+                }    
+            }
+            
+
+            $rs["pair"]=$currency.$pair;
+            $rs["status"]="success";
+            $rs["rate"]=$rate;
         } else {
-            $tasa = Tasa::find()
-                ->where(['idMoneda' => $actual->idMoneda])
+            $actual = Moneda::find()
+                ->where(['alias' => trim(strtoupper($currency))])
                 ->one();
-            $dolar = 1 / $tasa->tasaActual;
-            $rate['USD'] = floatval($dolar);
-        }
-        
-        $tasa = Tasa::find()
+            
+            if($actual->principal==1) {
+                $bandera=true;
+                $rate[$currency] = floatval(1);
+            } else {
+                $tasa = Tasa::find()
+                    ->where(['idMoneda' => $actual->idMoneda])
+                    ->one();
+                $dolar = 1 / $tasa->tasaActual;
+                $rate['USD'] = floatval($dolar);
+            }
+
+            $tasa = Tasa::find()
                 ->where(['activo' => 1])
                 ->all();
 
-        foreach($tasa as $tasa) {
-            $moneda = Moneda::find()
-                ->where(['activo' => 1, 'idMoneda' => $tasa->idMoneda])
-                ->one();
-            if (count($moneda)>0) {
-                if ($bandera) {
-                    $rate[$moneda->alias] = floatval($tasa->tasaActual);
-                } else {
-                    if ($moneda->alias==$currency) {
-                        $rate[$moneda->alias] = floatval(1);
+            foreach($tasa as $tasa) {
+                $moneda = Moneda::find()
+                    ->where(['activo' => 1, 'idMoneda' => $tasa->idMoneda])
+                    ->one();
+                if (count($moneda)>0) {
+                    if ($bandera) {
+                        $rate[$moneda->alias] = floatval($tasa->tasaActual);
                     } else {
-                        $valor = $dolar * $tasa->tasaActual;
-                        $rate[$moneda->alias] = floatval($valor);
-                    }                    
-                }                
+                        if ($moneda->alias==$currency) {
+                            $rate[$moneda->alias] = floatval(1);
+                        } else {
+                            $valor = $dolar * $tasa->tasaActual;
+                            $rate[$moneda->alias] = floatval($valor);
+                        }                    
+                    }                
+                }
             }
+            
+            $data["currency"]=trim(strtolower($currency));
+            $data["status"]="success";
+            $data["rates"]=$rate;
+            $rs["data"]=$data;
         }
-        
-        $data["currency"]=trim(strtolower($currency));
-        $data["status"]="success";
-        $data["rates"]=$rate;
-        $rs["data"]=$data;
-        
+
         return $rs;
     }
 
