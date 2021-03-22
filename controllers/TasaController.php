@@ -83,9 +83,10 @@ class TasaController extends Controller
         return $data[0]->simbolo." ".$data[0]->alias;
     }
 
-    public function actionRetornaTasa($currency, $pair = null) 
+    public function actionRetornaTasa($currency = null, $pair = null) 
     {
         \Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+        if ($currency == null) $currency='usd';
         $currency = trim(strtoupper($currency));
         $rs = [];
         $rate = [];
@@ -115,7 +116,18 @@ class TasaController extends Controller
                     $tasa = Tasa::find()
                         ->where(['idMoneda' => $mcurrency->idMoneda])
                         ->one();
-                    $rate = floatval(1 / $tasa->tasaActual);
+
+                    $tasa2 = Tasa::find()
+                        ->where(['idMoneda' => $mpair->idMoneda])
+                        ->one();
+
+                    if ($tasa2!="") {
+                        $sum = floatval(1 / $tasa->tasaActual);
+                        //echo $tasa2->tasaActual;die;
+                        $rate = floatval($sum * $tasa2->tasaActual);
+                    } else {
+                        $rate = floatval(1 / $tasa->tasaActual);    
+                    }
                 }    
             }
             
